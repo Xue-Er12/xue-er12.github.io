@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情绪气象站</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 引入Font Awesome图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- 自定义配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // 原有情绪配色
+                        sunny: { light: '#FFD166', dark: '#FF9F1C' },
+                        cloudy: { light: '#A0AEC0', dark: '#718096' },
+                        rainy: { light: '#63B3ED', dark: '#3182CE' },
+                        thunder: { light: '#4A5568', dark: '#1A202C' },
+                        starry: { light: '#E2E8F0', dark: '#1A202C' },
+                        // 新增情绪配色
+                        snowy: { light: '#E6FFFA', dark: '#7FEDFF' },    // 下雪 - 平静/孤独
+                        foggy: { light: '#CBD5E0', dark: '#4A5568' },    // 大雾 - 迷茫/困惑
+                        windy: { light: '#F7FAFC', dark: '#9F7AEA' },     // 大风 - 烦躁/不安
+                        rainbow: { light: '#FDF2F8', dark: '#ED8936' }    // 彩虹 - 治愈/希望
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 渐变背景 */
+            .bg-gradient-sunny { background: linear-gradient(135deg, #FFD166, #FF9F1C); }
+            .bg-gradient-cloudy { background: linear-gradient(135deg, #A0AEC0, #718096); }
+            .bg-gradient-rainy { background: linear-gradient(135deg, #63B3ED, #3182CE); }
+            .bg-gradient-thunder { background: linear-gradient(135deg, #4A5568, #1A202C); }
+            .bg-gradient-starry { background: linear-gradient(135deg, #1A202C, #2D3748); }
+            .bg-gradient-snowy { background: linear-gradient(135deg, #E6FFFA, #7FEDFF); }
+            .bg-gradient-foggy { background: linear-gradient(135deg, #CBD5E0, #4A5568); }
+            .bg-gradient-windy { background: linear-gradient(135deg, #F7FAFC, #9F7AEA); }
+            .bg-gradient-rainbow { background: linear-gradient(135deg, #FDF2F8, #ED8936); }
+            
+            /* 背景图片样式 - 新增 */
+            .bg-img-sunny { 
+                background-image: linear-gradient(rgba(255, 209, 102, 0.7), rgba(255, 159, 28, 0.7)), 
+                                  url('https://picsum.photos/id/1019/1920/1080'); 
+            }
+            .bg-img-cloudy { 
+                background-image: linear-gradient(rgba(160, 174, 192, 0.7), rgba(113, 128, 150, 0.7)), 
+                                  url('https://picsum.photos/id/1015/1920/1080'); 
+            }
+            .bg-img-rainy { 
+                background-image: linear-gradient(rgba(99, 179, 237, 0.7), rgba(49, 130, 206, 0.7)), 
+                                  url('https://picsum.photos/id/1039/1920/1080'); 
+            }
+            .bg-img-thunder { 
+                background-image: linear-gradient(rgba(74, 85, 104, 0.8), rgba(26, 32, 44, 0.8)), 
+                                  url('https://picsum.photos/id/1056/1920/1080'); 
+            }
+            .bg-img-starry { 
+                background-image: linear-gradient(rgba(26, 32, 44, 0.8), rgba(45, 55, 72, 0.8)), 
+                                  url('https://picsum.photos/id/1022/1920/1080'); 
+            }
+            .bg-img-snowy { 
+                background-image: linear-gradient(rgba(230, 255, 250, 0.7), rgba(127, 237, 255, 0.7)), 
+                                  url('https://picsum.photos/id/1036/1920/1080'); 
+            }
+            .bg-img-foggy { 
+                background-image: linear-gradient(rgba(203, 213, 224, 0.7), rgba(74, 85, 104, 0.7)), 
+                                  url('https://picsum.photos/id/1060/1920/1080'); 
+            }
+            .bg-img-windy { 
+                background-image: linear-gradient(rgba(247, 250, 252, 0.7), rgba(159, 122, 234, 0.7)), 
+                                  url('https://picsum.photos/id/1018/1920/1080'); 
+            }
+            .bg-img-rainbow { 
+                background-image: linear-gradient(rgba(253, 242, 248, 0.7), rgba(237, 137, 54, 0.7)), 
+                                  url('https://picsum.photos/id/1043/1920/1080'); 
+            }
+            
+            /* 背景图片通用样式 - 新增 */
+            .bg-emotion-img {
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }
+            
+            /* 动画效果 */
+            .rain-drop {
+                position: absolute;
+                width: 2px;
+                background: rgba(255, 255, 255, 0.7);
+                animation: rain linear infinite;
+            }
+            .lightning {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background: rgba(246, 224, 94, 0.3);
+                opacity: 0;
+                animation: lightning 8s infinite;
+            }
+            .star {
+                position: absolute;
+                background: white;
+                border-radius: 50%;
+                animation: twinkle 3s infinite alternate;
+            }
+            .snow-flake {
+                position: absolute;
+                background: white;
+                border-radius: 50%;
+                animation: snow linear infinite;
+                opacity: 0.8;
+            }
+            .fog {
+                position: absolute;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                animation: fog float infinite ease-in-out;
+            }
+            .wind {
+                position: absolute;
+                background: rgba(255, 255, 255, 0.1);
+                animation: wind blow infinite linear;
+            }
+            .rainbow {
+                position: absolute;
+                width: 300px;
+                height: 150px;
+                border-radius: 50%;
+                background: linear-gradient(
+                    to right,
+                    red,
+                    orange,
+                    yellow,
+                    green,
+                    blue,
+                    indigo,
+                    violet
+                );
+                opacity: 0.3;
+                animation: rainbow float 8s infinite ease-in-out;
+                clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%);
+            }
+            
+            /* 自定义配色面板样式 */
+            .color-picker {
+                -webkit-appearance: none;
+                width: 40px;
+                height: 40px;
+                border: none;
+                cursor: pointer;
+                background-color: transparent;
+            }
+            .color-picker::-webkit-color-swatch-wrapper {
+                padding: 0;
+            }
+            .color-picker::-webkit-color-swatch {
+                border: 2px solid #ddd;
+                border-radius: 8px;
+            }
+        }
+        
+        /* 关键帧动画 */
+        @keyframes rain {
+            0% { top: -10px; }
+            100% { top: 100vh; }
+        }
+        @keyframes lightning {
+            0%, 90%, 100% { opacity: 0; }
+            95% { opacity: 1; }
+        }
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+        @keyframes snow {
+            0% { top: -10px; transform: translateX(0) rotate(0deg); }
+            100% { top: 100vh; transform: translateX(50px) rotate(360deg); }
+        }
+        @keyframes fog {
+            0%, 100% { transform: scale(1) translate(0, 0); }
+            50% { transform: scale(1.2) translate(20px, -10px); }
+        }
+        @keyframes wind {
+            0% { left: -50px; opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { left: 100%; opacity: 0; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        /* 全局样式 */
+        body {
+            transition: background 1.5s ease-in-out; /* 延长过渡时间，让切换更平滑 */
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .emotion-icon {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .emotion-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .emotion-icon.active {
+            transform: scale(1.2);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        /* 标题颜色过渡 */
+        .emotion-title {
+            transition: color 0.8s ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="bg-img-sunny bg-emotion-img font-inter text-gray-800 relative">
+    <!-- 动态效果容器 -->
+    <div id="dynamic-effects" class="absolute inset-0 pointer-events-none z-0"></div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-white/80 backdrop-blur-md shadow-md fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-bold text-gray-800">
+                <i class="fas fa-cloud-sun mr-2"></i>情绪气象站
+            </div>
+            <div class="flex space-x-6">
+                <button id="nav-dashboard" class="font-medium hover:text-rainy-dark transition-colors">仪表盘</button>
+                <button id="nav-history" class="font-medium hover:text-rainy-dark transition-colors">历史记录</button>
+                <button id="nav-profile" class="font-medium hover:text-rainy-dark transition-colors">我的</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 自动切换控制按钮 - 新增 -->
+    <div class="fixed top-20 left-4 z-40 bg-white/70 backdrop-blur-sm rounded-lg p-2 shadow-md">
+        <button id="toggle-auto-switch" class="px-3 py-1 bg-rainy-dark text-white rounded-md text-sm flex items-center">
+            <i class="fas fa-play mr-1"></i>
+            <span>自动切换 (开)</span>
+        </button>
+    </div>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 pt-24 pb-16">
+        <!-- 仪表盘页面 -->
+        <section id="dashboard-page" class="block">
+            <div class="text-center mb-10">
+                <!-- 修改：添加emotion-title类，用于动态修改颜色 -->
+                <h1 class="emotion-title text-[clamp(2rem,5vw,3rem)] font-bold mb-4" style="color: #FF9F1C;">你今天感觉怎么样？</h1>
+                <p class="text-lg text-gray-700">用天气记录你的情绪，让心情有迹可循</p>
+            </div>
+
+            <!-- 情绪选择区 -->
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-12">
+                <!-- 天气图标选择器 -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4 mb-8">
+                    <div class="emotion-icon active flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="sunny">
+                        <i class="fas fa-sun text-4xl text-sunny-dark mb-2"></i>
+                        <span class="font-medium text-sm">晴朗</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="cloudy">
+                        <i class="fas fa-cloud text-4xl text-cloudy-dark mb-2"></i>
+                        <span class="font-medium text-sm">多云</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="rainy">
+                        <i class="fas fa-cloud-rain text-4xl text-rainy-dark mb-2"></i>
+                        <span class="font-medium text-sm">雨天</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="thunder">
+                        <i class="fas fa-bolt text-4xl text-yellow-400 mb-2"></i>
+                        <span class="font-medium text-sm">雷电</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="starry">
+                        <i class="fas fa-star text-4xl text-starry-light mb-2"></i>
+                        <span class="font-medium text-sm">星空</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="snowy">
+                        <i class="fas fa-snowflake text-4xl text-snowy-dark mb-2"></i>
+                        <span class="font-medium text-sm">下雪</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="foggy">
+                        <i class="fas fa-smog text-4xl text-foggy-dark mb-2"></i>
+                        <span class="font-medium text-sm">大雾</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="windy">
+                        <i class="fas fa-wind text-4xl text-windy-dark mb-2"></i>
+                        <span class="font-medium text-sm">大风</span>
+                    </div>
+                    <div class="emotion-icon flex flex-col items-center justify-center p-4 rounded-xl cursor-pointer" data-emotion="rainbow">
+                        <i class="fas fa-rainbow text-4xl text-rainbow-dark mb-2"></i>
+                        <span class="font-medium text-sm">彩虹</span>
+                    </div>
+                </div>
+
+                <!-- 音效播放/暂停按钮（修改后） -->
+                <div class="text-center mb-8">
+                    <button id="sound-control-btn" class="bg-sunny-dark hover:bg-sunny-light text-white px-6 py-2 rounded-lg shadow-md transition-colors">
+                        <i class="fas fa-volume-up mr-2"></i>播放当前情绪音效
+                    </button>
+                </div>
+
+                <!-- 强度滑块 -->
+                <div class="mb-8">
+                    <label class="block text-lg font-medium mb-2">情绪强度：</label>
+                    <div class="flex items-center space-x-4">
+                        <input type="range" id="emotion-intensity" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="intensity-value" class="text-lg font-medium">5</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-500 mt-1">
+                        <span>轻微</span>
+                        <span>强烈</span>
+                    </div>
+                </div>
+
+                <!-- 备注输入 -->
+                <div class="mb-8">
+                    <label for="emotion-note" class="block text-lg font-medium mb-2">备注（可选）：</label>
+                    <textarea id="emotion-note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rainy-dark focus:border-transparent" placeholder="写下此刻的心情关键词或一句话..."></textarea>
+                </div>
+
+                <!-- 提交按钮 -->
+                <button id="record-emotion" class="w-full bg-rainy-dark hover:bg-rainy-light text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg hover:shadow-xl">
+                    <i class="fas fa-save mr-2"></i>记录此刻
+                </button>
+            </div>
+
+            <!-- 本周情绪概览 -->
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold mb-6">本周情绪概览</h2>
+                <div class="h-64">
+                    <canvas id="weekly-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 历史记录页面 -->
+        <section id="history-page" class="hidden">
+            <div class="text-center mb-10">
+                <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold mb-4">情绪历史</h1>
+                <p class="text-lg text-gray-700">回顾你的情绪轨迹</p>
+            </div>
+
+            <!-- 筛选器 -->
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8">
+                <div class="flex flex-wrap gap-4 justify-center">
+                    <button id="filter-week" class="px-6 py-2 bg-rainy-dark text-white rounded-lg font-medium">本周</button>
+                    <button id="filter-month" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">本月</button>
+                    <button id="filter-year" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">本年</button>
+                </div>
+            </div>
+
+            <!-- 情绪日历 -->
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
+                <h2 class="text-2xl font-bold mb-6">情绪日历</h2>
+                <div id="emotion-calendar" class="grid grid-cols-7 gap-2">
+                    <!-- 日历头部 -->
+                    <div class="text-center font-medium py-2">日</div>
+                    <div class="text-center font-medium py-2">一</div>
+                    <div class="text-center font-medium py-2">二</div>
+                    <div class="text-center font-medium py-2">三</div>
+                    <div class="text-center font-medium py-2">四</div>
+                    <div class="text-center font-medium py-2">五</div>
+                    <div class="text-center font-medium py-2">六</div>
+                </div>
+            </div>
+
+            <!-- 详细记录列表 -->
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold mb-6">详细记录</h2>
+                <div id="record-list" class="space-y-4">
+                    <div class="text-center text-gray-500 py-8">
+                        暂无记录，快去记录你的第一个情绪吧！
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 个人中心页面 -->
+        <section id="profile-page" class="hidden">
+            <div class="text-center mb-10">
+                <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold mb-4">我的</h1>
+                <p class="text-lg text-gray-700">查看你的情绪数据统计</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+                <!-- 用户信息 -->
+                <div class="flex flex-col items-center mb-8">
+                    <div class="w-24 h-24 rounded-full bg-sunny-light flex items-center justify-center mb-4">
+                        <i class="fas fa-user text-4xl text-white"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold">匿名用户</h2>
+                    <p class="text-gray-500">数据仅存储在本地浏览器（可导出备份）</p>
+                </div>
+
+                <!-- 数据统计 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-gray-100 rounded-xl p-6 text-center">
+                        <div class="text-4xl font-bold text-sunny-dark mb-2" id="total-records">0</div>
+                        <div class="text-gray-600">总记录数</div>
+                    </div>
+                    <div class="bg-gray-100 rounded-xl p-6 text-center">
+                        <div class="text-4xl font-bold text-rainy-dark mb-2" id="continuous-days">0</div>
+                        <div class="text-gray-600">连续记录天数</div>
+                    </div>
+                    <div class="bg-gray-100 rounded-xl p-6 text-center">
+                        <div class="text-4xl font-bold text-cloudy-dark mb-2" id="most-emotion">—</div>
+                        <div class="text-gray-600">最常出现的情绪</div>
+                    </div>
+                </div>
+
+                <!-- 自定义配色设置 - 补全9种情绪 -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">自定义情绪配色</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">晴朗主色</span>
+                            <input type="color" id="sunny-color" value="#FF9F1C" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">多云主色</span>
+                            <input type="color" id="cloudy-color" value="#718096" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">雨天主色</span>
+                            <input type="color" id="rainy-color" value="#3182CE" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">雷电主色</span>
+                            <input type="color" id="thunder-color" value="#4A5568" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">星空主色</span>
+                            <input type="color" id="starry-color" value="#1A202C" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">下雪主色</span>
+                            <input type="color" id="snowy-color" value="#7FEDFF" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">大雾主色</span>
+                            <input type="color" id="foggy-color" value="#4A5568" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">大风主色</span>
+                            <input type="color" id="windy-color" value="#9F7AEA" class="color-picker">
+                        </div>
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium">彩虹主色</span>
+                            <input type="color" id="rainbow-color" value="#ED8936" class="color-picker">
+                        </div>
+                        <button id="save-colors" class="col-span-1 md:col-span-2 bg-sunny-dark hover:bg-sunny-light text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-palette mr-2"></i>保存配色设置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 数据管理 -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">数据管理</h3>
+                    <div class="flex flex-wrap gap-4">
+                        <button id="export-data" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-download mr-2"></i>导出数据
+                        </button>
+                        <label for="import-data" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors cursor-pointer text-center">
+                            <i class="fas fa-upload mr-2"></i>导入数据
+                        </label>
+                        <input type="file" id="import-data" accept=".json" class="hidden">
+                        <button id="clear-data" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-trash mr-2"></i>清除数据
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 设置选项 -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-4 border-b border-gray-200">
+                        <span class="font-medium">音效反馈</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="sound-toggle" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-rainy-dark rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rainy-dark"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部 -->
+    <footer class="bg-white/80 backdrop-blur-md py-6 mt-12">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>情绪气象站 © 2026 | 让情绪有温度，让记录更简单</p>
+        </div>
+    </footer>
+
+    <!-- 成功提示弹窗 -->
+    <div id="success-toast" class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span>情绪记录成功！</span>
+    </div>
+
+    <!-- 音频元素（白噪音）- 本地音频版本 -->
+<audio id="sunny-sound" preload="none" loop>
+    <source src="	https://s23.aconvert.com/convert/p3r68-cdx67/bwqvx-1ggni.mp3" type="audio/mpeg">
+</audio>
+<audio id="cloudy-sound" preload="none" loop>
+    <source src="https://s21.aconvert.com/convert/p3r68-cdx67/3w7s8-map25.mp3" type="audio/mpeg">
+</audio>
+<audio id="rainy-sound" preload="none" loop>
+    <source src="https://s21.aconvert.com/convert/p3r68-cdx67/knipd-ev6oz.mp3" type="audio/mpeg">
+</audio>
+<audio id="thunder-sound" preload="none" loop>
+    <source src="https://s23.aconvert.com/convert/p3r68-cdx67/tr9ta-m2sdu.mp3" type="audio/mpeg">
+</audio>
+<audio id="starry-sound" preload="none" loop>
+    <source src="	https://s21.aconvert.com/convert/p3r68-cdx67/7rcho-kjinc.mp3" type="audio/mpeg">
+</audio>
+<audio id="snowy-sound" preload="none" loop>
+    <source src="	https://s23.aconvert.com/convert/p3r68-cdx67/bd87g-mbq1g.mp3" type="audio/mpeg">
+</audio>
+<audio id="foggy-sound" preload="none" loop>
+    <source src="	https://s23.aconvert.com/convert/p3r68-cdx67/u58bj-il4x3.mp3" type="audio/mpeg">
+</audio>
+<audio id="windy-sound" preload="none" loop>
+    <source src="https://s21.aconvert.com/convert/p3r68-cdx67/f3mvd-iwkx1.mp3" type="audio/mpeg">
+</audio>
+<audio id="rainbow-sound" preload="none" loop>
+    <source src="	https://s23.aconvert.com/convert/p3r68-cdx67/0wsrr-nhut5.mp3" type="audio/mpeg">
+</audio>
+
+    <script>
+        // 全局变量
+        let currentEmotion = 'sunny';
+        let emotionData = JSON.parse(localStorage.getItem('emotionData')) || [];
+        let customColors = JSON.parse(localStorage.getItem('customColors')) || {};
+        let currentPlayingAudio = null; // 新增：记录当前播放的音频
+        let autoSwitchTimer = null; // 新增：自动切换定时器
+        let isAutoSwitchEnabled = true; // 新增：自动切换开关状态
+        const emotionList = ['sunny', 'cloudy', 'rainy', 'thunder', 'starry', 'snowy', 'foggy', 'windy', 'rainbow']; // 情绪列表
+        const autoSwitchInterval = 8000; // 新增：自动切换间隔（毫秒），8秒
+        
+        // 情绪配置
+        const emotionConfig = {
+            sunny: { name: '晴朗', color: '#FF9F1C', icon: '☀️' },
+            cloudy: { name: '多云', color: '#718096', icon: '☁️' },
+            rainy: { name: '雨天', color: '#3182CE', icon: '🌧️' },
+            thunder: { name: '雷电', color: '#4A5568', icon: '⛈️' },
+            starry: { name: '星空', color: '#1A202C', icon: '⭐' },
+            snowy: { name: '下雪', color: '#7FEDFF', icon: '❄️' },
+            foggy: { name: '大雾', color: '#4A5568', icon: '🌫️' },
+            windy: { name: '大风', color: '#9F7AEA', icon: '💨' },
+            rainbow: { name: '彩虹', color: '#ED8936', icon: '🌈' }
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化自定义配色
+            initCustomColors();
+            
+            // 初始化页面
+            initPage();
+            
+            // 绑定事件
+            bindEvents();
+            
+            // 渲染数据
+            renderWeeklyChart();
+            renderEmotionCalendar();
+            updateProfileStats();
+            
+            // 启动自动切换 - 新增
+            startAutoSwitch();
+        });
+
+        // 初始化自定义配色 - 补全9种情绪
+        function initCustomColors() {
+            Object.keys(emotionConfig).forEach(emotion => {
+                emotionConfig[emotion].color = customColors[emotion] || emotionConfig[emotion].color;
+            });
+            
+            // 初始化所有9种情绪的颜色选择器值
+            document.getElementById('sunny-color').value = emotionConfig.sunny.color;
+            document.getElementById('cloudy-color').value = emotionConfig.cloudy.color;
+            document.getElementById('rainy-color').value = emotionConfig.rainy.color;
+            document.getElementById('thunder-color').value = emotionConfig.thunder.color;
+            document.getElementById('starry-color').value = emotionConfig.starry.color;
+            document.getElementById('snowy-color').value = emotionConfig.snowy.color;
+            document.getElementById('foggy-color').value = emotionConfig.foggy.color;
+            document.getElementById('windy-color').value = emotionConfig.windy.color;
+            document.getElementById('rainbow-color').value = emotionConfig.rainbow.color;
+        }
+
+        // 初始化页面
+        function initPage() {
+            updateBackground(currentEmotion);
+            document.getElementById('intensity-value').textContent = document.getElementById('emotion-intensity').value;
+        }
+
+        // 绑定所有事件
+        function bindEvents() {
+            // 情绪图标选择
+            document.querySelectorAll('.emotion-icon').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    // 点击时暂停自动切换
+                    pauseAutoSwitch();
+                    
+                    document.querySelectorAll('.emotion-icon').forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                    currentEmotion = this.dataset.emotion;
+                    updateBackground(currentEmotion);
+                    
+                    // 新增：切换情绪时暂停当前音效
+                    if (currentPlayingAudio && !currentPlayingAudio.paused) {
+                        currentPlayingAudio.pause();
+                        currentPlayingAudio.currentTime = 0;
+                        document.getElementById('sound-control-btn').innerHTML = '<i class="fas fa-volume-up mr-2"></i>播放当前情绪音效';
+                    }
+                });
+            });
+
+            // 强度滑块变化
+            document.getElementById('emotion-intensity').addEventListener('input', function() {
+                document.getElementById('intensity-value').textContent = this.value;
+            });
+
+            // 记录情绪按钮
+            document.getElementById('record-emotion').addEventListener('click', function() {
+                recordEmotion();
+            });
+
+            // 导航切换
+            document.getElementById('nav-dashboard').addEventListener('click', () => switchPage('dashboard-page'));
+            document.getElementById('nav-history').addEventListener('click', () => switchPage('history-page'));
+            document.getElementById('nav-profile').addEventListener('click', () => switchPage('profile-page'));
+
+            // 筛选器切换
+            document.getElementById('filter-week').addEventListener('click', () => filterRecords('week'));
+            document.getElementById('filter-month').addEventListener('click', () => filterRecords('month'));
+            document.getElementById('filter-year').addEventListener('click', () => filterRecords('year'));
+
+            // 音效播放/暂停按钮（核心修改）
+            document.getElementById('sound-control-btn').addEventListener('click', function() {
+                if (!document.getElementById('sound-toggle').checked) {
+                    showToast('音效已关闭', 'info');
+                    return;
+                }
+
+                // 获取当前情绪对应的音频元素
+                const audio = document.getElementById(`${currentEmotion}-sound`);
+                if (!audio) {
+                    showToast('暂无对应音效', 'info');
+                    return;
+                }
+
+                // 判断当前音频状态：播放中 → 暂停；未播放 → 播放
+                if (currentPlayingAudio === audio && !audio.paused) {
+                    // 暂停音频
+                    audio.pause();
+                    this.innerHTML = '<i class="fas fa-volume-up mr-2"></i>播放当前情绪音效';
+                    showToast(`暂停${emotionConfig[currentEmotion].name}音效`, 'info');
+                } else {
+                    // 停止所有其他音频
+                    document.querySelectorAll('audio').forEach(a => {
+                        a.pause();
+                        a.currentTime = 0; // 重置播放进度
+                    });
+
+                    // 播放当前音频
+                    audio.volume = 0.5;
+                    audio.play().then(() => {
+                        currentPlayingAudio = audio; // 记录正在播放的音频
+                        this.innerHTML = '<i class="fas fa-pause mr-2"></i>暂停当前情绪音效';
+                        showToast(`开始播放${emotionConfig[currentEmotion].name}音效`, 'info');
+                    }).catch(err => {
+                        showToast('播放失败：请检查网络或浏览器权限', 'error');
+                        console.log('音频播放错误:', err);
+                    });
+                }
+            });
+
+            // 自定义配色保存 - 补全9种情绪
+            document.getElementById('save-colors').addEventListener('click', saveCustomColors);
+            
+            // 数据导出
+            document.getElementById('export-data').addEventListener('click', exportData);
+            // 数据导入
+            document.getElementById('import-data').addEventListener('change', importData);
+            // 清除数据
+            document.getElementById('clear-data').addEventListener('click', clearAllData);
+            
+            // 自动切换控制按钮 - 新增
+            document.getElementById('toggle-auto-switch').addEventListener('click', toggleAutoSwitch);
+        }
+
+        // 切换页面
+        function switchPage(pageId) {
+            document.querySelectorAll('section').forEach(section => {
+                section.classList.add('hidden');
+                section.classList.remove('block');
+            });
+            document.getElementById(pageId).classList.remove('hidden');
+            document.getElementById(pageId).classList.add('block');
+            
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('text-rainy-dark', 'font-bold');
+            });
+            document.getElementById(`nav-${pageId.replace('-page', '')}`).classList.add('text-rainy-dark', 'font-bold');
+        }
+
+        // 更新背景和动态效果 - 新增标题颜色修改
+        function updateBackground(emotion) {
+            // 移除所有背景类
+            document.body.className = document.body.className.replace(/bg-gradient-\w+/g, '');
+            document.body.className = document.body.className.replace(/bg-img-\w+/g, '');
+            
+            // 添加背景图片类和通用样式
+            document.body.classList.add(`bg-img-${emotion}`, 'bg-emotion-img');
+            
+            // 清空动态效果容器
+            const effectsContainer = document.getElementById('dynamic-effects');
+            effectsContainer.innerHTML = '';
+            
+            // 根据情绪添加动态效果
+            switch(emotion) {
+                case 'rainy':
+                    createRainEffect();
+                    break;
+                case 'thunder':
+                    createRainEffect();
+                    createLightningEffect();
+                    break;
+                case 'starry':
+                    createStarEffect();
+                    break;
+                case 'snowy':
+                    createSnowEffect();
+                    break;
+                case 'foggy':
+                    createFogEffect();
+                    break;
+                case 'windy':
+                    createWindEffect();
+                    break;
+                case 'rainbow':
+                    createRainbowEffect();
+                    break;
+                case 'sunny':
+                    break;
+                case 'cloudy':
+                    break;
+            }
+            
+            // 更新选中的情绪图标
+            document.querySelectorAll('.emotion-icon').forEach(i => i.classList.remove('active'));
+            document.querySelector(`.emotion-icon[data-emotion="${emotion}"]`).classList.add('active');
+            
+            // 更新音效按钮颜色
+            document.getElementById('sound-control-btn').className = 
+                `bg-${emotion}-dark hover:bg-${emotion}-light text-white px-6 py-2 rounded-lg shadow-md transition-colors`;
+            
+            // 新增：更新标题文字颜色为当前情绪主色
+            const titleElement = document.querySelector('.emotion-title');
+            titleElement.style.color = emotionConfig[emotion].color;
+        }
+
+        // 动画效果函数
+        function createRainEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const dropCount = 150;
+            
+            for (let i = 0; i < dropCount; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'rain-drop';
+                
+                const left = Math.random() * 100;
+                const height = Math.random() * 20 + 10;
+                const duration = Math.random() * 1 + 0.5;
+                const delay = Math.random() * 5;
+                
+                drop.style.left = `${left}%`;
+                drop.style.height = `${height}px`;
+                drop.style.animationDuration = `${duration}s`;
+                drop.style.animationDelay = `${delay}s`;
+                
+                effectsContainer.appendChild(drop);
+            }
+        }
+
+        function createLightningEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const lightning = document.createElement('div');
+            lightning.className = 'lightning';
+            effectsContainer.appendChild(lightning);
+        }
+
+        function createStarEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const starCount = 80;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+                const size = Math.random() * 3 + 1;
+                const delay = Math.random() * 3;
+                
+                star.style.left = `${left}%`;
+                star.style.top = `${top}%`;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.animationDelay = `${delay}s`;
+                
+                effectsContainer.appendChild(star);
+            }
+        }
+
+        function createSnowEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const snowCount = 100;
+            
+            for (let i = 0; i < snowCount; i++) {
+                const snow = document.createElement('div');
+                snow.className = 'snow-flake';
+                
+                const left = Math.random() * 100;
+                const size = Math.random() * 5 + 1;
+                const duration = Math.random() * 10 + 5;
+                const delay = Math.random() * 5;
+                
+                snow.style.left = `${left}%`;
+                snow.style.width = `${size}px`;
+                snow.style.height = `${size}px`;
+                snow.style.animationDuration = `${duration}s`;
+                snow.style.animationDelay = `${delay}s`;
+                
+                effectsContainer.appendChild(snow);
+            }
+        }
+
+        function createFogEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const fogCount = 5;
+            
+            for (let i = 0; i < fogCount; i++) {
+                const fog = document.createElement('div');
+                fog.className = 'fog';
+                
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+                const size = Math.random() * 200 + 100;
+                const duration = Math.random() * 10 + 10;
+                const delay = Math.random() * 5;
+                
+                fog.style.left = `${left}%`;
+                fog.style.top = `${top}%`;
+                fog.style.width = `${size}px`;
+                fog.style.height = `${size}px`;
+                fog.style.animationDuration = `${duration}s`;
+                fog.style.animationDelay = `${delay}s`;
+                
+                effectsContainer.appendChild(fog);
+            }
+        }
+
+        function createWindEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const windCount = 10;
+            
+            for (let i = 0; i < windCount; i++) {
+                const wind = document.createElement('div');
+                wind.className = 'wind';
+                
+                const top = Math.random() * 100;
+                const height = Math.random() * 50 + 20;
+                const width = Math.random() * 100 + 50;
+                const duration = Math.random() * 3 + 2;
+                const delay = Math.random() * 5;
+                
+                wind.style.top = `${top}%`;
+                wind.style.height = `${height}px`;
+                wind.style.width = `${width}px`;
+                wind.style.animationDuration = `${duration}s`;
+                wind.style.animationDelay = `${delay}s`;
+                
+                effectsContainer.appendChild(wind);
+            }
+        }
+
+        function createRainbowEffect() {
+            const effectsContainer = document.getElementById('dynamic-effects');
+            const rainbow = document.createElement('div');
+            rainbow.className = 'rainbow';
+            
+            rainbow.style.right = '10%';
+            rainbow.style.top = '30%';
+            
+            effectsContainer.appendChild(rainbow);
+        }
+
+        // 记录情绪
+        function recordEmotion() {
+            const intensity = parseInt(document.getElementById('emotion-intensity').value);
+            const note = document.getElementById('emotion-note').value.trim();
+            const date = new Date().toISOString();
+            
+            const record = {
+                emotion: currentEmotion,
+                intensity: intensity,
+                note: note,
+                date: date,
+                // 新增：唯一ID，方便后续管理
+                id: Date.now() + Math.random().toString(36).substr(2, 9)
+            };
+            
+            emotionData.push(record);
+            localStorage.setItem('emotionData', JSON.stringify(emotionData));
+            
+            // 重置表单
+            document.getElementById('emotion-note').value = '';
+            document.getElementById('emotion-intensity').value = 5;
+            document.getElementById('intensity-value').textContent = 5;
+            
+            // 更新视图
+            renderWeeklyChart();
+            renderEmotionCalendar();
+            updateProfileStats();
+            
+            showToast('情绪记录成功！');
+        }
+
+        // 显示提示弹窗
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('success-toast');
+            
+            toast.className = toast.className.replace(/bg-\w+-\d+/g, '');
+            if (type === 'error') {
+                toast.classList.add('bg-red-500');
+            } else if (type === 'info') {
+                toast.classList.add('bg-blue-500');
+            } else {
+                toast.classList.add('bg-green-500');
+            }
+            
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation' : 'info'}-circle mr-2"></i><span>${message}</span>`;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 保存自定义配色 - 补全9种情绪
+        function saveCustomColors() {
+            customColors = {
+                sunny: document.getElementById('sunny-color').value,
+                cloudy: document.getElementById('cloudy-color').value,
+                rainy: document.getElementById('rainy-color').value,
+                thunder: document.getElementById('thunder-color').value,
+                starry: document.getElementById('starry-color').value,
+                snowy: document.getElementById('snowy-color').value,
+                foggy: document.getElementById('foggy-color').value,
+                windy: document.getElementById('windy-color').value,
+                rainbow: document.getElementById('rainbow-color').value
+            };
+            
+            Object.keys(customColors).forEach(emotion => {
+                emotionConfig[emotion].color = customColors[emotion];
+            });
+            
+            localStorage.setItem('customColors', JSON.stringify(customColors));
+            
+            updateBackground(currentEmotion);
+            renderWeeklyChart();
+            renderEmotionCalendar();
+            
+            showToast('配色设置已保存！');
+        }
+
+        // 导出数据
+        function exportData() {
+            const dataStr = JSON.stringify(emotionData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `情绪气象站_${new Date().toLocaleDateString()}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showToast('数据导出成功！');
+        }
+
+        // 导入数据
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (Array.isArray(importedData) && importedData.length > 0) {
+                        const idSet = new Set(emotionData.map(item => item.id));
+                        let newCount = 0;
+                        
+                        importedData.forEach(item => {
+                            if (!idSet.has(item.id) && item.id) {
+                                emotionData.push(item);
+                                idSet.add(item.id);
+                                newCount++;
+                            }
+                        });
+                        
+                        localStorage.setItem('emotionData', JSON.stringify(emotionData));
+                        
+                        renderWeeklyChart();
+                        renderEmotionCalendar();
+                        updateProfileStats();
+                        
+                        showToast(`成功导入 ${newCount} 条新记录！`);
+                    } else {
+                        showToast('导入的文件格式不正确！', 'error');
+                    }
+                } catch (error) {
+                    showToast('导入失败：' + error.message, 'error');
+                }
+                
+                document.getElementById('import-data').value = '';
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // 清除所有数据
+        function clearAllData() {
+            if (confirm('确定要清除所有情绪记录吗？此操作不可恢复！')) {
+                localStorage.removeItem('emotionData');
+                emotionData = [];
+                
+                renderWeeklyChart();
+                renderEmotionCalendar();
+                updateProfileStats();
+                
+                showToast('所有本地数据已清除！');
+            }
+        }
+
+        // 渲染本周情绪图表 - 优化单日多条记录统计
+        function renderWeeklyChart() {
+            const ctx = document.getElementById('weekly-chart').getContext('2d');
+            
+            const labels = [];
+            const data = {};
+            Object.keys(emotionConfig).forEach(emotion => {
+                data[emotion] = [];
+            });
+            
+            // 获取近7天日期
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                labels.push(dateStr);
+                
+                // 初始化当天各情绪强度为0
+                Object.keys(data).forEach(emotion => data[emotion].push(0));
+                
+                // 获取当天所有记录
+                const dayRecords = emotionData.filter(record => {
+                    return record.date.split('T')[0] === dateStr;
+                });
+                
+                if (dayRecords.length > 0) {
+                    // 按情绪分组计算平均强度
+                    const emotionSum = {};
+                    const emotionCount = {};
+                    
+                    Object.keys(data).forEach(emotion => {
+                        emotionSum[emotion] = 0;
+                        emotionCount[emotion] = 0;
+                    });
+                    
+                    dayRecords.forEach(record => {
+                        emotionSum[record.emotion] += record.intensity;
+                        emotionCount[record.emotion]++;
+                    });
+                    
+                    // 计算平均值并赋值
+                    Object.keys(data).forEach(emotion => {
+                        if (emotionCount[emotion] > 0) {
+                            const avg = emotionSum[emotion] / emotionCount[emotion];
+                            data[emotion][7 - i - 1] = avg;
+                        }
+                    });
+                }
+            }
+            
+            // 销毁旧图表
+            if (window.weeklyChart) {
+                window.weeklyChart.destroy();
+            }
+            
+            // 创建新图表
+            window.weeklyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: Object.keys(emotionConfig).map(emotion => ({
+                        label: emotionConfig[emotion].name,
+                        data: data[emotion],
+                        backgroundColor: emotionConfig[emotion].color + '80',
+                        borderColor: emotionConfig[emotion].color,
+                        borderWidth: 1
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: '情绪强度（平均值）'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    return `日期：${tooltipItems[0].label}`;
+                                },
+                                label: function(context) {
+                                    const emotion = context.dataset.label;
+                                    const value = context.raw;
+                                    return value > 0 ? `${emotion}：${value.toFixed(1)}（平均强度）` : `${emotion}：无记录`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    // 支持堆叠显示，更清晰展示单日多条记录
+                    stacked: false
+                }
+            });
+        }
+
+        // 渲染情绪日历 - 优化单日多条记录展示
+        function renderEmotionCalendar() {
+            const calendarContainer = document.getElementById('emotion-calendar');
+            
+            // 清空日历内容（保留表头）
+            while (calendarContainer.children.length > 7) {
+                calendarContainer.removeChild(calendarContainer.lastChild);
+            }
+            
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const firstDayOfWeek = firstDay.getDay();
+            
+            // 填充月初空白
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'h-16 bg-gray-100 rounded-lg';
+                calendarContainer.appendChild(emptyCell);
+            }
+            
+            // 填充日期
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateCell = document.createElement('div');
+                dateCell.className = 'h-16 bg-white rounded-lg border border-gray-200 p-2 hover:shadow-md transition-shadow cursor-pointer';
+                
+                const dateStr = new Date(now.getFullYear(), now.getMonth(), day).toISOString().split('T')[0];
+                const dayRecords = emotionData.filter(record => {
+                    return record.date.split('T')[0] === dateStr;
+                });
+                
+                if (dayRecords.length > 0) {
+                    // 统计当天出现次数最多的情绪
+                    const emotionCount = {};
+                    Object.keys(emotionConfig).forEach(emotion => emotionCount[emotion] = 0);
+                    
+                    dayRecords.forEach(record => {
+                        emotionCount[record.emotion]++;
+                    });
+                    
+                    // 找出出现次数最多的情绪
+                    let mainEmotion = Object.keys(emotionCount).reduce((a, b) => {
+                        return emotionCount[a] > emotionCount[b] ? a : b;
+                    });
+                    
+                    // 设置单元格样式
+                    dateCell.style.backgroundColor = `${emotionConfig[mainEmotion].color}20`;
+                    dateCell.style.borderColor = emotionConfig[mainEmotion].color;
+                    
+                    // 显示日期、情绪图标和记录数
+                    dateCell.innerHTML = `
+                        <div class="font-medium">${day}</div>
+                        <div class="text-xl mt-1">${emotionConfig[mainEmotion].icon}</div>
+                        <div class="text-xs text-gray-500 absolute bottom-1 right-1">${dayRecords.length}条</div>
+                    `;
+                    
+                    // 点击显示当天所有记录
+                    dateCell.addEventListener('click', () => showDayRecords(dateStr));
+                } else {
+                    dateCell.innerHTML = `<div class="font-medium">${day}</div>`;
+                }
+                
+                calendarContainer.appendChild(dateCell);
+            }
+        }
+
+        // 显示指定日期的记录 - 展示所有记录
+        function showDayRecords(dateStr) {
+            const recordList = document.getElementById('record-list');
+            
+            // 获取当天所有记录并按时间排序
+            const dayRecords = emotionData.filter(record => {
+                return record.date.split('T')[0] === dateStr;
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            recordList.innerHTML = '';
+            
+            if (dayRecords.length === 0) {
+                recordList.innerHTML = '<div class="text-center text-gray-500 py-4">当天暂无情绪记录</div>';
+                return;
+            }
+            
+            // 渲染每条记录
+            dayRecords.forEach((record, index) => {
+                const recordItem = document.createElement('div');
+                recordItem.className = 'p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow';
+                
+                const recordDate = new Date(record.date);
+                const timeStr = recordDate.toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                recordItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center mb-2">
+                                <span class="text-xl mr-2">${emotionConfig[record.emotion].icon}</span>
+                                <span class="font-bold text-lg">${emotionConfig[record.emotion].name}</span>
+                                <span class="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">强度: ${record.intensity}</span>
+                            </div>
+                            ${record.note ? `<p class="text-gray-600">${record.note}</p>` : '<p class="text-gray-400 text-sm">无备注</p>'}
+                        </div>
+                        <span class="text-gray-500 text-sm">${timeStr}</span>
+                    </div>
+                `;
+                
+                recordList.appendChild(recordItem);
+            });
+        }
+
+        // 筛选记录
+        function filterRecords(period) {
+            document.querySelectorAll('#history-page .flex button').forEach(btn => {
+                btn.classList.remove('bg-rainy-dark', 'text-white');
+                btn.classList.add('bg-gray-200', 'hover:bg-gray-300');
+            });
+            document.getElementById(`filter-${period}`).classList.remove('bg-gray-200', 'hover:bg-gray-300');
+            document.getElementById(`filter-${period}`).classList.add('bg-rainy-dark', 'text-white');
+            
+            renderEmotionCalendar();
+        }
+
+        // 更新个人中心统计数据
+        function updateProfileStats() {
+            document.getElementById('total-records').textContent = emotionData.length;
+            
+            const continuousDays = calculateContinuousDays();
+            document.getElementById('continuous-days').textContent = continuousDays;
+            
+            const mostEmotion = getMostFrequentEmotion();
+            document.getElementById('most-emotion').textContent = mostEmotion ? emotionConfig[mostEmotion].name : '—';
+        }
+
+        // 计算连续记录天数
+        function calculateContinuousDays() {
+            if (emotionData.length === 0) return 0;
+            
+            const sortedRecords = [...emotionData].sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            const recordDates = new Set();
+            sortedRecords.forEach(record => {
+                recordDates.add(record.date.split('T')[0]);
+            });
+            
+            const dateArray = Array.from(recordDates).sort();
+            
+            let continuousDays = 1;
+            let maxContinuous = 1;
+            
+            for (let i = 1; i < dateArray.length; i++) {
+                const prevDate = new Date(dateArray[i-1]);
+                const currDate = new Date(dateArray[i]);
+                
+                const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+                
+                if (diffDays === 1) {
+                    continuousDays++;
+                    maxContinuous = Math.max(maxContinuous, continuousDays);
+                } else {
+                    continuousDays = 1;
+                }
+            }
+            
+            return maxContinuous;
+        }
+
+        // 获取最常出现的情绪
+        function getMostFrequentEmotion() {
+            if (emotionData.length === 0) return null;
+            
+            const emotionCount = {};
+            Object.keys(emotionConfig).forEach(emotion => emotionCount[emotion] = 0);
+            
+            emotionData.forEach(record => {
+                emotionCount[record.emotion]++;
+            });
+            
+            return Object.keys(emotionCount).reduce((a, b) => {
+                return emotionCount[a] > emotionCount[b] ? a : b;
+            });
+        }
+        
+        // ---------------- 新增：自动切换相关函数 ----------------
+        // 启动自动切换
+        function startAutoSwitch() {
+            if (autoSwitchTimer) clearInterval(autoSwitchTimer);
+            
+            isAutoSwitchEnabled = true;
+            document.getElementById('toggle-auto-switch').innerHTML = '<i class="fas fa-pause mr-1"></i><span>自动切换 (开)</span>';
+            
+            autoSwitchTimer = setInterval(() => {
+                switchToNextEmotion();
+            }, autoSwitchInterval);
+        }
+        
+        // 暂停自动切换
+        function pauseAutoSwitch() {
+            if (autoSwitchTimer) clearInterval(autoSwitchTimer);
+            
+            isAutoSwitchEnabled = false;
+            document.getElementById('toggle-auto-switch').innerHTML = '<i class="fas fa-play mr-1"></i><span>自动切换 (关)</span>';
+        }
+        
+        // 切换自动切换状态
+        function toggleAutoSwitch() {
+            if (isAutoSwitchEnabled) {
+                pauseAutoSwitch();
+            } else {
+                startAutoSwitch();
+            }
+        }
+        
+        // 切换到下一个情绪
+        function switchToNextEmotion() {
+            const currentIndex = emotionList.indexOf(currentEmotion);
+            const nextIndex = (currentIndex + 1) % emotionList.length;
+            currentEmotion = emotionList[nextIndex];
+            
+            // 暂停当前音效
+            if (currentPlayingAudio && !currentPlayingAudio.paused) {
+                currentPlayingAudio.pause();
+                currentPlayingAudio.currentTime = 0;
+                document.getElementById('sound-control-btn').innerHTML = '<i class="fas fa-volume-up mr-2"></i>播放当前情绪音效';
+            }
+            
+            // 更新背景和UI
+            updateBackground(currentEmotion);
+        }
+    </script>
+</body>
+</html>
