@@ -171,6 +171,64 @@
                 border: 2px solid #ddd;
                 border-radius: 8px;
             }
+
+            /* 新增：图片上传预览样式 */
+            .image-preview-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 8px;
+            }
+            .image-preview-item {
+                position: relative;
+                width: 100px;
+                height: 100px;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #e2e8f0;
+            }
+            .image-preview-item img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .image-delete-btn {
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                background: rgba(255, 0, 0, 0.8);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-size: 12px;
+                z-index: 10;
+            }
+            .image-delete-btn:hover {
+                background: rgba(220, 38, 38, 1);
+            }
+            .upload-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                padding: 6px 12px;
+                background: #f3f4f6;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                cursor: pointer;
+                color: #4b5563;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            .upload-btn:hover {
+                background: #e5e7eb;
+                color: #1f2937;
+            }
         }
         
         /* 关键帧动画 */
@@ -326,10 +384,22 @@
                     </div>
                 </div>
 
-                <!-- 备注输入 -->
+                <!-- 备注输入 + 图片上传（核心新增） -->
                 <div class="mb-8">
                     <label for="emotion-note" class="block text-lg font-medium mb-2">备注（可选）：</label>
                     <textarea id="emotion-note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rainy-dark focus:border-transparent" placeholder="写下此刻的心情关键词或一句话..."></textarea>
+                    
+                    <!-- 新增：图片上传区域 -->
+                    <div class="mt-4">
+                        <label class="upload-btn">
+                            <i class="fas fa-image"></i>
+                            <span>添加图片</span>
+                            <input type="file" id="image-upload" accept="image/*" multiple class="hidden">
+                        </label>
+                        
+                        <!-- 图片预览容器 -->
+                        <div id="image-preview-container" class="image-preview-container mt-4"></div>
+                    </div>
                 </div>
 
                 <!-- 提交按钮 -->
@@ -551,6 +621,8 @@
         let isAutoSwitchEnabled = true; // 新增：自动切换开关状态
         const emotionList = ['sunny', 'cloudy', 'rainy', 'thunder', 'starry', 'snowy', 'foggy', 'windy', 'rainbow']; // 情绪列表
         const autoSwitchInterval = 8000; // 新增：自动切换间隔（毫秒），8秒
+        // 新增：存储上传的图片Base64数据
+        let uploadedImages = [];
         
         // 情绪配置
         const emotionConfig = {
@@ -586,6 +658,9 @@
             
             // 【修复1】初始化历史记录列表
             renderAllRecords();
+
+            // 新增：绑定图片上传事件
+            bindImageUploadEvents();
         });
 
         // 初始化自定义配色 - 补全9种情绪
@@ -710,6 +785,69 @@
             
             // 自动切换控制按钮 - 新增
             document.getElementById('toggle-auto-switch').addEventListener('click', toggleAutoSwitch);
+        }
+
+        // 新增：绑定图片上传相关事件
+        function bindImageUploadEvents() {
+            // 图片选择事件
+            document.getElementById('image-upload').addEventListener('change', function(e) {
+                const files = e.target.files;
+                if (!files || files.length === 0) return;
+
+                // 处理每个选中的图片
+                Array.from(files).forEach(file => {
+                    // 只处理图片文件
+                    if (!file.type.startsWith('image/')) {
+                        showToast('请选择图片格式的文件！', 'error');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const base64Data = event.target.result;
+                        // 保存图片数据
+                        uploadedImages.push(base64Data);
+                        // 渲染预览
+                        renderImagePreview();
+                    };
+                    // 读取为Base64
+                    reader.readAsDataURL(file);
+                });
+
+                // 清空input值，允许重复选择同一张图片
+                this.value = '';
+            });
+        }
+
+        // 新增：渲染图片预览
+        function renderImagePreview() {
+            const previewContainer = document.getElementById('image-preview-container');
+            previewContainer.innerHTML = '';
+
+            uploadedImages.forEach((imageData, index) => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'image-preview-item';
+                
+                // 图片元素
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.alt = `上传的图片 ${index + 1}`;
+                
+                // 删除按钮
+                const deleteBtn = document.createElement('div');
+                deleteBtn.className = 'image-delete-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                deleteBtn.onclick = () => {
+                    // 删除对应图片
+                    uploadedImages.splice(index, 1);
+                    // 重新渲染预览
+                    renderImagePreview();
+                };
+                
+                previewItem.appendChild(img);
+                previewItem.appendChild(deleteBtn);
+                previewContainer.appendChild(previewItem);
+            });
         }
 
         // 切换页面
@@ -919,7 +1057,7 @@
             effectsContainer.appendChild(rainbow);
         }
 
-        // 记录情绪
+        // 记录情绪（修改：添加图片数据存储）
         function recordEmotion() {
             const intensity = parseInt(document.getElementById('emotion-intensity').value);
             const note = document.getElementById('emotion-note').value.trim();
@@ -931,7 +1069,9 @@
                 note: note,
                 date: date,
                 // 新增：唯一ID，方便后续管理
-                id: Date.now() + Math.random().toString(36).substr(2, 9)
+                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                // 新增：存储上传的图片Base64数据
+                images: [...uploadedImages]
             };
             
             emotionData.push(record);
@@ -941,6 +1081,9 @@
             document.getElementById('emotion-note').value = '';
             document.getElementById('emotion-intensity').value = 5;
             document.getElementById('intensity-value').textContent = 5;
+            // 新增：清空上传的图片
+            uploadedImages = [];
+            renderImagePreview();
             
             // 更新视图
             renderWeeklyChart();
@@ -1265,7 +1408,7 @@
             }
         }
 
-        // 显示指定日期的记录 - 展示所有记录
+        // 显示指定日期的记录 - 展示所有记录（修改：添加图片展示）
         function showDayRecords(dateStr) {
             const recordList = document.getElementById('record-list');
             
@@ -1292,18 +1435,33 @@
                     minute: '2-digit',
                     second: '2-digit'
                 });
+
+                // 构建图片预览HTML
+                let imagesHtml = '';
+                if (record.images && record.images.length > 0) {
+                    imagesHtml = `
+                        <div class="mt-2 image-preview-container">
+                            ${record.images.map(imgData => `
+                                <div class="image-preview-item">
+                                    <img src="${imgData}" alt="记录图片" />
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
                 
                 recordItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div>
+                        <div class="w-full">
                             <div class="flex items-center mb-2">
                                 <span class="text-xl mr-2">${emotionConfig[record.emotion].icon}</span>
                                 <span class="font-bold text-lg">${emotionConfig[record.emotion].name}</span>
                                 <span class="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">强度: ${record.intensity}</span>
                             </div>
                             ${record.note ? `<p class="text-gray-600">${record.note}</p>` : '<p class="text-gray-400 text-sm">无备注</p>'}
+                            ${imagesHtml}
                         </div>
-                        <span class="text-gray-500 text-sm">${timeStr}</span>
+                        <span class="text-gray-500 text-sm ml-4">${timeStr}</span>
                     </div>
                 `;
                 
@@ -1311,7 +1469,7 @@
             });
         }
 
-        // 【修复7】新增：渲染所有历史记录
+        // 【修复7】新增：渲染所有历史记录（修改：添加图片展示）
         function renderAllRecords() {
             const recordList = document.getElementById('record-list');
             
@@ -1337,18 +1495,33 @@
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+
+                // 构建图片预览HTML
+                let imagesHtml = '';
+                if (record.images && record.images.length > 0) {
+                    imagesHtml = `
+                        <div class="mt-2 image-preview-container">
+                            ${record.images.map(imgData => `
+                                <div class="image-preview-item">
+                                    <img src="${imgData}" alt="记录图片" />
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
                 
                 recordItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div>
+                        <div class="w-full">
                             <div class="flex items-center mb-2">
                                 <span class="text-xl mr-2">${emotionConfig[record.emotion].icon}</span>
                                 <span class="font-bold text-lg">${emotionConfig[record.emotion].name}</span>
                                 <span class="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">强度: ${record.intensity}</span>
                             </div>
                             ${record.note ? `<p class="text-gray-600">${record.note}</p>` : '<p class="text-gray-400 text-sm">无备注</p>'}
+                            ${imagesHtml}
                         </div>
-                        <div class="text-right">
+                        <div class="text-right ml-4">
                             <span class="text-gray-500 text-sm">${dateStr}</span>
                             <br>
                             <span class="text-gray-500 text-sm">${timeStr}</span>
@@ -1360,85 +1533,124 @@
             });
         }
 
-        // 筛选记录
-        function filterRecords(period) {
-            document.querySelectorAll('#history-page .flex button').forEach(btn => {
-                btn.classList.remove('bg-rainy-dark', 'text-white');
-                btn.classList.add('bg-gray-200', 'hover:bg-gray-300');
-            });
-            document.getElementById(`filter-${period}`).classList.remove('bg-gray-200', 'hover:bg-gray-300');
-            document.getElementById(`filter-${period}`).classList.add('bg-rainy-dark', 'text-white');
-            
-            renderEmotionCalendar();
-            
-            // 【修复8】筛选记录时更新列表展示
-            const now = new Date();
-            let filteredRecords = [];
-            
-            switch(period) {
-                case 'week':
-                    const weekAgo = new Date();
-                    weekAgo.setDate(now.getDate() - 7);
-                    filteredRecords = emotionData.filter(record => new Date(record.date) >= weekAgo);
-                    break;
-                case 'month':
-                    const monthAgo = new Date();
-                    monthAgo.setMonth(now.getMonth() - 1);
-                    filteredRecords = emotionData.filter(record => new Date(record.date) >= monthAgo);
-                    break;
-                case 'year':
-                    const yearAgo = new Date();
-                    yearAgo.setFullYear(now.getFullYear() - 1);
-                    filteredRecords = emotionData.filter(record => new Date(record.date) >= yearAgo);
-                    break;
-                default:
-                    filteredRecords = emotionData;
-            }
-            
-            const recordList = document.getElementById('record-list');
-            recordList.innerHTML = '';
-            
-            if (filteredRecords.length === 0) {
-                recordList.innerHTML = `<div class="text-center text-gray-500 py-4">${period === 'week' ? '本周' : period === 'month' ? '本月' : '本年'}暂无情绪记录</div>`;
-                return;
-            }
-            
-            // 按时间倒序排序
-            filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            // 渲染筛选后的记录
-            filteredRecords.forEach((record) => {
-                const recordItem = document.createElement('div');
-                recordItem.className = 'p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow';
-                
+       // 筛选记录（修复日期范围计算 + 确保列表正确更新）
+function filterRecords(period) {
+    // 更新筛选按钮样式
+    document.querySelectorAll('#history-page .flex button').forEach(btn => {
+        btn.classList.remove('bg-rainy-dark', 'text-white');
+        btn.classList.add('bg-gray-200', 'hover:bg-gray-300');
+    });
+    document.getElementById(`filter-${period}`).classList.remove('bg-gray-200', 'hover:bg-gray-300');
+    document.getElementById(`filter-${period}`).classList.add('bg-rainy-dark', 'text-white');
+    
+    // 重新渲染日历（保持原有逻辑）
+    renderEmotionCalendar();
+    
+    const now = new Date();
+    let filteredRecords = [];
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 今天0点
+    
+    switch(period) {
+        case 'week':
+            // 计算本周第一天（周日）
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            // 本周最后一天（周六）
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            // 筛选本周内的记录
+            filteredRecords = emotionData.filter(record => {
                 const recordDate = new Date(record.date);
-                const dateStr = recordDate.toLocaleDateString('zh-CN');
-                const timeStr = recordDate.toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                recordItem.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <div class="flex items-center mb-2">
-                                <span class="text-xl mr-2">${emotionConfig[record.emotion].icon}</span>
-                                <span class="font-bold text-lg">${emotionConfig[record.emotion].name}</span>
-                                <span class="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">强度: ${record.intensity}</span>
-                            </div>
-                            ${record.note ? `<p class="text-gray-600">${record.note}</p>` : '<p class="text-gray-400 text-sm">无备注</p>'}
-                        </div>
-                        <div class="text-right">
-                            <span class="text-gray-500 text-sm">${dateStr}</span>
-                            <br>
-                            <span class="text-gray-500 text-sm">${timeStr}</span>
-                        </div>
-                    </div>
-                `;
-                
-                recordList.appendChild(recordItem);
+                const recordDay = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+                return recordDay >= weekStart && recordDay <= weekEnd;
             });
+            break;
+        case 'month':
+            // 本月第一天
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            // 本月最后一天
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            // 筛选本月内的记录
+            filteredRecords = emotionData.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate >= monthStart && recordDate <= monthEnd;
+            });
+            break;
+        case 'year':
+            // 本年第一天
+            const yearStart = new Date(now.getFullYear(), 0, 1);
+            // 本年最后一天
+            const yearEnd = new Date(now.getFullYear(), 11, 31);
+            // 筛选本年内的记录
+            filteredRecords = emotionData.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate >= yearStart && recordDate <= yearEnd;
+            });
+            break;
+        default:
+            filteredRecords = [...emotionData];
+    }
+    
+    // 渲染筛选后的记录列表
+    const recordList = document.getElementById('record-list');
+    recordList.innerHTML = '';
+    
+    if (filteredRecords.length === 0) {
+        recordList.innerHTML = `<div class="text-center text-gray-500 py-4">${period === 'week' ? '本周' : period === 'month' ? '本月' : '本年'}暂无情绪记录</div>`;
+        return;
+    }
+    
+    // 按时间倒序排序
+    filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // 渲染每条记录（保留原有渲染逻辑，包含图片展示）
+    filteredRecords.forEach((record) => {
+        const recordItem = document.createElement('div');
+        recordItem.className = 'p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow';
+        
+        const recordDate = new Date(record.date);
+        const dateStr = recordDate.toLocaleDateString('zh-CN');
+        const timeStr = recordDate.toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // 图片预览HTML
+        let imagesHtml = '';
+        if (record.images && record.images.length > 0) {
+            imagesHtml = `
+                <div class="mt-2 image-preview-container">
+                    ${record.images.map(imgData => `
+                        <div class="image-preview-item">
+                            <img src="${imgData}" alt="记录图片" />
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
+        
+        recordItem.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div class="w-full">
+                    <div class="flex items-center mb-2">
+                        <span class="text-xl mr-2">${emotionConfig[record.emotion].icon}</span>
+                        <span class="font-bold text-lg">${emotionConfig[record.emotion].name}</span>
+                        <span class="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">强度: ${record.intensity}</span>
+                    </div>
+                    ${record.note ? `<p class="text-gray-600">${record.note}</p>` : '<p class="text-gray-400 text-sm">无备注</p>'}
+                    ${imagesHtml}
+                </div>
+                <div class="text-right ml-4">
+                    <span class="text-gray-500 text-sm">${dateStr}</span>
+                    <br>
+                    <span class="text-gray-500 text-sm">${timeStr}</span>
+                </div>
+            </div>
+        `;
+        
+        recordList.appendChild(recordItem);
+    });
+}
 
         // 更新个人中心统计数据
         function updateProfileStats() {
