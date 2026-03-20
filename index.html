@@ -393,8 +393,8 @@
     <!-- 动态效果容器 -->
     <div id="dynamic-effects" class="absolute inset-0 pointer-events-none z-0"></div>
 
-<!-- 桌宠容器 - 新增 -->
-<div id="pet-container" class="fixed z-50 w-32 h-32 bottom-40 right-32 cursor-move select-none">
+<!-- 桌宠容器 - 新增（修复位置和拖拽逻辑） -->
+<div id="pet-container" class="fixed z-50 w-32 h-32 bottom-8 right-8 cursor-move select-none">
   <!-- 桌宠主体（可替换为图片/雪碧图） -->
   <div id="pet" class="w-full h-full bg-contain bg-no-repeat bg-center" 
        style="background-image: url('https://raw.githubusercontent.com/Xue-Er12/emotion-sounds/main/6767e45c77066I1a.gif');"></div>
@@ -2097,7 +2097,7 @@ function filterRecords(period) {
             }
         }
 
-// 桌宠核心逻辑 - 新增
+// 桌宠核心逻辑 - 修复拖拽和位置问题
 document.addEventListener('DOMContentLoaded', () => {
   // 1. 获取元素
   const petContainer = document.getElementById('pet-container');
@@ -2107,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2. 初始化漂浮动画
   pet.classList.add('pet-float');
   
-  // 3. 拖拽功能实现
+  // 3. 拖拽功能实现（修复位置计算）
   let isDragging = false;
   let offsetX, offsetY;
 
@@ -2115,9 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
   petContainer.addEventListener('mousedown', (e) => {
     isDragging = true;
     petContainer.classList.add('pet-dragging');
-    // 计算鼠标与桌宠的偏移量
-    offsetX = e.clientX - petContainer.getBoundingClientRect().left;
-    offsetY = e.clientY - petContainer.getBoundingClientRect().top;
+    // 计算鼠标与桌宠的偏移量（修复：使用getBoundingClientRect正确计算）
+    const rect = petContainer.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
     // 阻止默认行为（避免选中文本）
     e.preventDefault();
   });
@@ -2125,15 +2126,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // 鼠标移动（拖拽过程）
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    // 计算桌宠新位置
+    // 计算桌宠新位置（修复：正确限制在可视区域内）
     const x = e.clientX - offsetX;
     const y = e.clientY - offsetY;
-    // 限制桌宠在可视区域内
-    const maxX = window.innerWidth - petContainer.offsetWidth;
-    const maxY = window.innerHeight - petContainer.offsetHeight;
-    const finalX = Math.max(0, Math.min(x, maxX));
-    const finalY = Math.max(0, Math.min(y, maxY));
-    // 更新位置
+    
+    // 获取窗口尺寸
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    // 获取桌宠尺寸
+    const petWidth = petContainer.offsetWidth;
+    const petHeight = petContainer.offsetHeight;
+    
+    // 限制桌宠在可视区域内（修复边界计算）
+    const finalX = Math.max(0, Math.min(x, windowWidth - petWidth));
+    const finalY = Math.max(0, Math.min(y, windowHeight - petHeight));
+    
+    // 更新位置（修复：使用left/top替代bottom/right）
     petContainer.style.left = `${finalX}px`;
     petContainer.style.top = `${finalY}px`;
     petContainer.style.bottom = 'auto';
@@ -2172,8 +2180,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const randomText = bubbleTexts[Math.floor(Math.random() * bubbleTexts.length)];
     petBubble.textContent = randomText;
   });
-
-
 
   // 5. 可选：跟随情绪切换桌宠样式（关联情绪气象站核心逻辑）
   const emotionIcons = document.querySelectorAll('.emotion-icon');
@@ -2223,7 +2229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- 提示内容由JS动态生成 -->
 </div>
 
-<!-- 记账功能核心JS（放在Toast之后、</body>之前） -->
+<!-- 记账功能核心JS（修复数据存储和读取逻辑） -->
 <script>
 // ========== 记账功能（支持收入/支出）- 修复版 ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -2248,24 +2254,57 @@ document.addEventListener('DOMContentLoaded', function() {
     return new Date().toISOString().split('T')[0];
   }
 
-  // 从localStorage读取收支数据
+  // 从localStorage读取收支数据（修复：确保数据结构正确）
   function getExpenseData() {
-    const data = localStorage.getItem('expenseRecords');
-    // 修复：确保返回正确的数据结构
-    const parsedData = data ? JSON.parse(data) : {};
-    // 兼容旧数据格式
-    for (const date in parsedData) {
-      if (!parsedData[date].income) parsedData[date].income = [];
-      if (!parsedData[date].expense) parsedData[date].expense = [];
-      if (parsedData[date].totalIncome === undefined) parsedData[date].totalIncome = 0;
-      if (parsedData[date].totalExpense === undefined) parsedData[date].totalExpense = 0;
+    try {
+      const data = localStorage.getItem('expenseRecords');
+      if (!data) return {};
+      
+      const parsedData = JSON.parse(data);
+      // 验证数据结构
+      if (typeof parsedData !== 'object' || parsedData === null) return {};
+      
+      // 修复旧数据结构
+      for (const date in parsedData) {
+        if (!parsedData[date]) {
+          parsedData[date] = { income: [], expense: [], totalIncome: 0, totalExpense: 0 };
+          continue;
+        }
+        // 初始化缺失的字段
+        if (!Array.isArray(parsedData[date].income)) parsedData[date].income = [];
+        if (!Array.isArray(parsedData[date].expense)) parsedData[date].expense = [];
+        if (typeof parsedData[date].totalIncome !== 'number') parsedData[date].totalIncome = 0;
+        if (typeof parsedData[date].totalExpense !== 'number') parsedData[date].totalExpense = 0;
+        
+        // 修复记录中的金额类型（确保是数字）
+        parsedData[date].income.forEach(item => {
+          item.amount = parseFloat(item.amount) || 0;
+        });
+        parsedData[date].expense.forEach(item => {
+          item.amount = parseFloat(item.amount) || 0;
+        });
+        
+        // 重新计算总计（确保数据一致性）
+        parsedData[date].totalIncome = parsedData[date].income.reduce((sum, item) => sum + item.amount, 0);
+        parsedData[date].totalExpense = parsedData[date].expense.reduce((sum, item) => sum + item.amount, 0);
+      }
+      
+      return parsedData;
+    } catch (e) {
+      console.error('读取收支数据失败:', e);
+      return {};
     }
-    return parsedData;
   }
 
   // 保存收支数据到localStorage
   function saveExpenseData(data) {
-    localStorage.setItem('expenseRecords', JSON.stringify(data));
+    try {
+      localStorage.setItem('expenseRecords', JSON.stringify(data));
+      return true;
+    } catch (e) {
+      console.error('保存收支数据失败:', e);
+      return false;
+    }
   }
 
   // 显示自定义提示框（替代alert）
@@ -2403,7 +2442,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = getTodayDate();
     let expenseData = getExpenseData();
     
-    // 初始化今日数据结构
+    // 初始化今日数据结构（确保正确）
     if (!expenseData[today]) {
       expenseData[today] = {
         income: [],    // 收入列表
@@ -2413,7 +2452,7 @@ document.addEventListener('DOMContentLoaded', function() {
       };
     }
 
-    // 构建记录对象（修复：金额保留2位小数）
+    // 构建记录对象（修复：金额保留2位小数，确保是数字类型）
     const record = {
       id: Date.now(), // 唯一ID
       amount: Number(amount.toFixed(2)), // 转为数字类型，避免字符串计算错误
@@ -2424,14 +2463,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加记录并更新总计（修复：正确的数值计算）
     if (currentRecordType === 'income') {
       expenseData[today].income.push(record);
-      expenseData[today].totalIncome = Number((expenseData[today].totalIncome + amount).toFixed(2));
+      // 重新计算总收入（避免累加错误）
+      expenseData[today].totalIncome = expenseData[today].income.reduce((sum, item) => sum + item.amount, 0);
     } else {
       expenseData[today].expense.push(record);
-      expenseData[today].totalExpense = Number((expenseData[today].totalExpense + amount).toFixed(2));
+      // 重新计算总支出（避免累加错误）
+      expenseData[today].totalExpense = expenseData[today].expense.reduce((sum, item) => sum + item.amount, 0);
     }
 
     // 保存数据
-    saveExpenseData(expenseData);
+    const saveSuccess = saveExpenseData(expenseData);
+    if (!saveSuccess) {
+      showCustomAlert('保存失败，请稍后重试！');
+      return;
+    }
     
     // 关闭记账弹窗并打开总结弹窗
     document.getElementById('close-expense-modal').click();
@@ -2455,7 +2500,11 @@ document.addEventListener('DOMContentLoaded', function() {
       totalExpense: 0
     };
     
-    // 修复3：正确计算结余（收入 - 支出）
+    // 修复3：重新计算总计（确保数据准确）
+    todayData.totalIncome = todayData.income.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    todayData.totalExpense = todayData.expense.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    
+    // 正确计算结余（收入 - 支出）
     const balance = Number((todayData.totalIncome - todayData.totalExpense).toFixed(2));
     
     // 更新标题
@@ -2474,7 +2523,8 @@ document.addEventListener('DOMContentLoaded', function() {
       html += `<div class="mt-3"><strong class="income">收入明细：</strong></div>`;
       html += `<ul class="income">`;
       todayData.income.forEach(item => {
-        html += `<li>${item.time} - ${item.remark}：¥${item.amount.toFixed(2)}</li>`;
+        const itemAmount = parseFloat(item.amount) || 0;
+        html += `<li>${item.time} - ${item.remark}：¥${itemAmount.toFixed(2)}</li>`;
       });
       html += `</ul>`;
     }
@@ -2484,7 +2534,8 @@ document.addEventListener('DOMContentLoaded', function() {
       html += `<div class="mt-3"><strong class="expense">支出明细：</strong></div>`;
       html += `<ul class="expense">`;
       todayData.expense.forEach(item => {
-        html += `<li>${item.time} - ${item.remark}：¥${item.amount.toFixed(2)}</li>`;
+        const itemAmount = parseFloat(item.amount) || 0;
+        html += `<li>${item.time} - ${item.remark}：¥${itemAmount.toFixed(2)}</li>`;
       });
       html += `</ul>`;
     }
