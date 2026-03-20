@@ -434,19 +434,51 @@
             </div>
 
             <!-- 情绪日历 -->
-            <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6">情绪日历</h2>
-                <div id="emotion-calendar" class="grid grid-cols-7 gap-2">
-                    <!-- 日历头部 -->
-                    <div class="text-center font-medium py-2">日</div>
-                    <div class="text-center font-medium py-2">一</div>
-                    <div class="text-center font-medium py-2">二</div>
-                    <div class="text-center font-medium py-2">三</div>
-                    <div class="text-center font-medium py-2">四</div>
-                    <div class="text-center font-medium py-2">五</div>
-                    <div class="text-center font-medium py-2">六</div>
-                </div>
-            </div>
+<div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
+    <h2 class="text-2xl font-bold mb-6">情绪日历</h2>
+    <!-- 新增日历头部（年月切换） -->
+    <div class="calendar-header mb-4 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <button id="prev-year" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <i class="fas fa-chevron-left fa-fw"></i>
+                <i class="fas fa-chevron-left fa-fw"></i>
+            </button>
+            <button id="prev-month" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            
+            <!-- 年份选择下拉框 -->
+            <select id="year-select" class="py-1 px-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-rainy-dark">
+                <!-- 由JS动态填充 -->
+            </select>
+            
+            <h3 id="calendar-month-year" class="text-xl font-medium">2025年1月</h3>
+            
+            <button id="next-month" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            <button id="next-year" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <i class="fas fa-chevron-right fa-fw"></i>
+                <i class="fas fa-chevron-right fa-fw"></i>
+            </button>
+        </div>
+        
+        <!-- 快速回到今天按钮 -->
+        <button id="today-btn" class="px-3 py-1 bg-rainy-dark text-white rounded-md text-sm">
+            <i class="fas fa-calendar-day mr-1"></i>今天
+        </button>
+    </div>
+    <div id="emotion-calendar" class="grid grid-cols-7 gap-2">
+    <!-- 日历头部 -->
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">日</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">一</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">二</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">三</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">四</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">五</div>
+    <div class="text-center font-medium py-2 h-20 flex items-center justify-center border-b border-gray-100">六</div>
+</div>
+</div>
 
             <!-- 详细记录列表 -->
             <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
@@ -613,16 +645,19 @@
 
     <script>
         // 全局变量
-        let currentEmotion = 'sunny';
-        let emotionData = JSON.parse(localStorage.getItem('emotionData')) || [];
-        let customColors = JSON.parse(localStorage.getItem('customColors')) || {};
-        let currentPlayingAudio = null; // 新增：记录当前播放的音频
-        let autoSwitchTimer = null; // 新增：自动切换定时器
-        let isAutoSwitchEnabled = true; // 新增：自动切换开关状态
-        const emotionList = ['sunny', 'cloudy', 'rainy', 'thunder', 'starry', 'snowy', 'foggy', 'windy', 'rainbow']; // 情绪列表
-        const autoSwitchInterval = 8000; // 新增：自动切换间隔（毫秒），8秒
-        // 新增：存储上传的图片Base64数据
-        let uploadedImages = [];
+let currentEmotion = 'sunny';
+let emotionData = JSON.parse(localStorage.getItem('emotionData')) || [];
+let customColors = JSON.parse(localStorage.getItem('customColors')) || {};
+let currentPlayingAudio = null; 
+let autoSwitchTimer = null; 
+let isAutoSwitchEnabled = true; 
+const emotionList = ['sunny', 'cloudy', 'rainy', 'thunder', 'starry', 'snowy', 'foggy', 'windy', 'rainbow']; 
+const autoSwitchInterval = 8000; 
+let uploadedImages = [];
+// 日历相关全局变量（更新）
+let currentCalendarDate = new Date(); // 当前显示的日历年月
+const today = new Date(); // 今天的日期
+const currentYear = today.getFullYear(); // 当前年份
         
         // 情绪配置
         const emotionConfig = {
@@ -637,31 +672,33 @@
             rainbow: { name: '彩虹', color: '#ED8936', icon: '🌈' }
         };
 
-        // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化自定义配色
-            initCustomColors();
-            
-            // 初始化页面
-            initPage();
-            
-            // 绑定事件
-            bindEvents();
-            
-            // 渲染数据
-            renderWeeklyChart();
-            renderEmotionCalendar();
-            updateProfileStats();
-            
-            // 启动自动切换 - 新增
-            startAutoSwitch();
-            
-            // 【修复1】初始化历史记录列表
-            renderAllRecords();
+    // 初始化自定义配色
+    initCustomColors();
+    
+    // 初始化页面
+    initPage();
+    
+    // 绑定事件
+    bindEvents();
+    
+    // 新增：绑定日历切换事件（必须加！）
+    bindCalendarEvents();
+    
+    // 渲染数据
+    renderWeeklyChart();
+    renderEmotionCalendar();
+    updateProfileStats();
+    
+    // 启动自动切换 - 新增
+    startAutoSwitch();
+    
+    // 【修复1】初始化历史记录列表
+    renderAllRecords();
 
-            // 新增：绑定图片上传事件
-            bindImageUploadEvents();
-        });
+    // 新增：绑定图片上传事件
+    bindImageUploadEvents();
+});
 
         // 初始化自定义配色 - 补全9种情绪
         function initCustomColors() {
@@ -786,6 +823,89 @@
             // 自动切换控制按钮 - 新增
             document.getElementById('toggle-auto-switch').addEventListener('click', toggleAutoSwitch);
         }
+
+// 绑定日历切换事件
+function bindCalendarEvents() {
+    // 上月切换
+    document.getElementById('prev-month').addEventListener('click', function() {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        renderEmotionCalendar();
+        updateYearSelect(); // 更新年份选择框
+    });
+
+    // 下月切换
+    document.getElementById('next-month').addEventListener('click', function() {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        renderEmotionCalendar();
+        updateYearSelect(); // 更新年份选择框
+    });
+
+    // 上年切换
+    document.getElementById('prev-year').addEventListener('click', function() {
+        currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() - 1);
+        renderEmotionCalendar();
+        updateYearSelect(); // 更新年份选择框
+    });
+
+    // 下年切换
+    document.getElementById('next-year').addEventListener('click', function() {
+        currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() + 1);
+        renderEmotionCalendar();
+        updateYearSelect(); // 更新年份选择框
+    });
+
+    // 回到今天
+    document.getElementById('today-btn').addEventListener('click', function() {
+        currentCalendarDate = new Date(); // 重置为今天
+        renderEmotionCalendar();
+        updateYearSelect(); // 更新年份选择框
+    });
+
+    // 年份选择框变更
+    document.getElementById('year-select').addEventListener('change', function() {
+        const selectedYear = parseInt(this.value);
+        currentCalendarDate.setFullYear(selectedYear);
+        renderEmotionCalendar();
+    });
+
+    // 初始化年份选择框
+    initYearSelect();
+}
+
+// 初始化年份选择框
+function initYearSelect() {
+    const yearSelect = document.getElementById('year-select');
+    const startYear = currentYear - 5; // 显示近5年
+    const endYear = currentYear + 5; // 显示未来5年
+    
+    // 清空现有选项
+    yearSelect.innerHTML = '';
+    
+    // 添加年份选项
+    for (let year = startYear; year <= endYear; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = `${year}年`;
+        // 默认选中当前年份
+        if (year === currentCalendarDate.getFullYear()) {
+            option.selected = true;
+        }
+        yearSelect.appendChild(option);
+    }
+}
+
+// 更新年份选择框选中状态
+function updateYearSelect() {
+    const yearSelect = document.getElementById('year-select');
+    const currentYear = currentCalendarDate.getFullYear();
+    
+    // 如果当前年份不在选项中，重新初始化
+    if (!Array.from(yearSelect.options).some(option => parseInt(option.value) === currentYear)) {
+        initYearSelect();
+    } else {
+        yearSelect.value = currentYear;
+    }
+}
 
         // 新增：绑定图片上传相关事件
         function bindImageUploadEvents() {
@@ -1338,76 +1458,138 @@
             });
         }
 
-        // 渲染情绪日历 - 优化单日多条记录展示
-        function renderEmotionCalendar() {
-            const calendarContainer = document.getElementById('emotion-calendar');
-            
-            // 清空日历内容（保留表头）
-            while (calendarContainer.children.length > 7) {
-                calendarContainer.removeChild(calendarContainer.lastChild);
-            }
-            
-            const now = new Date();
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            const firstDayOfWeek = firstDay.getDay();
-            
-            // 填充月初空白
-            for (let i = 0; i < firstDayOfWeek; i++) {
-                const emptyCell = document.createElement('div');
-                emptyCell.className = 'h-16 bg-gray-100 rounded-lg';
-                calendarContainer.appendChild(emptyCell);
-            }
-            
-            // 填充日期
-            for (let day = 1; day <= lastDay.getDate(); day++) {
-                const dateCell = document.createElement('div');
-                dateCell.className = 'h-16 bg-white rounded-lg border border-gray-200 p-2 hover:shadow-md transition-shadow cursor-pointer';
-                
-                const dateStr = new Date(now.getFullYear(), now.getMonth(), day).toISOString().split('T')[0];
-                const dayRecords = emotionData.filter(record => {
-                    return record.date.split('T')[0] === dateStr;
-                });
-                
-                if (dayRecords.length > 0) {
-                    // 统计当天出现次数最多的情绪
-                    const emotionCount = {};
-                    Object.keys(emotionConfig).forEach(emotion => emotionCount[emotion] = 0);
-                    
-                    dayRecords.forEach(record => {
-                        emotionCount[record.emotion]++;
-                    });
-                    
-                    // 找出出现次数最多的情绪
-                    let mainEmotion = Object.keys(emotionCount).reduce((a, b) => {
-                        return emotionCount[a] > emotionCount[b] ? a : b;
-                    });
-                    
-                    // 设置单元格样式
-                    dateCell.style.backgroundColor = `${emotionConfig[mainEmotion].color}20`;
-                    dateCell.style.borderColor = emotionConfig[mainEmotion].color;
-                    
-                    // 显示日期、情绪图标和记录数
-                    dateCell.innerHTML = `
-                        <div class="font-medium">${day}</div>
-                        <div class="text-xl mt-1">${emotionConfig[mainEmotion].icon}</div>
-                        <div class="text-xs text-gray-500 absolute bottom-1 right-1">${dayRecords.length}条</div>
-                    `;
-                    
-                    // 点击显示当天所有记录
-                    dateCell.addEventListener('click', () => {
-                        // 【修复6】点击日历日期时先切换到历史记录页面
-                        switchPage('history-page');
-                        showDayRecords(dateStr);
-                    });
-                } else {
-                    dateCell.innerHTML = `<div class="font-medium">${day}</div>`;
-                }
-                
-                calendarContainer.appendChild(dateCell);
-            }
-        }
 
+
+// 渲染情绪日历 - 修复布局错乱+统一样式
+function renderEmotionCalendar() {
+  const calendarContainer = document.getElementById('emotion-calendar');
+  
+  // 清空日历内容（保留表头）
+  while (calendarContainer.children.length > 7) {
+      calendarContainer.removeChild(calendarContainer.lastChild);
+  }
+  
+  // 获取当前显示的年月
+  const displayYear = currentCalendarDate.getFullYear();
+  const displayMonth = currentCalendarDate.getMonth();
+  
+  // 更新日历标题（如果有）
+  if (document.getElementById('calendar-month-year')) {
+      document.getElementById('calendar-month-year').textContent = `${displayYear}年${displayMonth + 1}月`;
+  }
+  
+  // 计算当前月的第一天和最后一天
+  const firstDay = new Date(displayYear, displayMonth, 1);
+  const lastDay = new Date(displayYear, displayMonth + 1, 0);
+  
+  // 当月第一天是星期几（0=周日，6=周六）
+  const firstDayOfWeek = firstDay.getDay();
+  
+  // 填充月初空白（上月的日期）- 统一高度样式
+  for (let i = 0; i < firstDayOfWeek; i++) {
+      const emptyCell = document.createElement('div');
+      // 统一单元格高度为h-20，保持布局一致
+      emptyCell.className = 'h-20 bg-gray-50 rounded-lg text-gray-300 flex items-center justify-center border border-gray-100';
+      // 计算上月日期（修复日期计算逻辑）
+      const prevMonthDay = new Date(displayYear, displayMonth, 0).getDate() - i;
+      emptyCell.textContent = prevMonthDay;
+      calendarContainer.appendChild(emptyCell);
+  }
+  
+  // 填充当月日期 - 统一样式
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+      const dateCell = document.createElement('div');
+      // 基础样式：统一高度+边框
+      dateCell.className = 'h-20 rounded-lg border border-gray-200 p-2 hover:shadow-lg transition-all cursor-pointer relative';
+      
+      // 创建当前日期对象
+      const currentDate = new Date(displayYear, displayMonth, day);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // 判断是否是今天
+      const isToday = currentDate.getDate() === today.getDate() &&
+                      currentDate.getMonth() === today.getMonth() &&
+                      currentDate.getFullYear() === today.getFullYear();
+      
+      // 获取当天的情绪记录
+      const dayRecords = emotionData.filter(record => {
+          return record.date && record.date.split('T')[0] === dateStr;
+      });
+      
+      // 设置今天的高亮样式
+      if (isToday) {
+          dateCell.classList.add('bg-blue-50', 'border-blue-300');
+      }
+      
+      if (dayRecords.length > 0) {
+          // 按强度总和统计情绪
+          const emotionStrength = {};
+          Object.keys(emotionConfig).forEach(emotion => emotionStrength[emotion] = 0);
+          
+          dayRecords.forEach(record => {
+              emotionStrength[record.emotion] += record.intensity;
+          });
+          
+          // 找出强度总和最高的情绪
+          let mainEmotion = Object.keys(emotionStrength).reduce((a, b) => {
+              return emotionStrength[a] > emotionStrength[b] ? a : b;
+          });
+          
+          // 设置有记录的单元格样式
+          dateCell.style.backgroundColor = `${emotionConfig[mainEmotion].color}15`;
+          if (!isToday) {
+              dateCell.style.borderColor = emotionConfig[mainEmotion].color;
+              dateCell.style.borderWidth = '2px';
+          }
+          
+          // 计算平均强度
+          const totalIntensity = emotionStrength[mainEmotion];
+          const avgIntensity = (totalIntensity / dayRecords.length).toFixed(1);
+          
+          // 单元格内容（优化布局）
+          dateCell.innerHTML = `
+              <div class="font-bold text-sm ${isToday ? 'text-blue-700' : ''}">${day}</div>
+              ${isToday ? '<div class="text-xs text-blue-700">今天</div>' : ''}
+              <div class="text-2xl mt-1">${emotionConfig[mainEmotion].icon}</div>
+              <div class="text-xs text-gray-500 absolute bottom-1 left-1">
+                  平均强度: ${avgIntensity}
+              </div>
+              <div class="text-xs text-gray-500 absolute bottom-1 right-1">
+                  ${dayRecords.length}条
+              </div>
+          `;
+          
+          // 点击事件
+          dateCell.addEventListener('click', () => {
+              switchPage('history-page');
+              showDayRecords(dateStr);
+              showToast(`已切换至${dateStr}的情绪记录`, 'success');
+          });
+      } else {
+          // 无记录的日期单元格（统一样式）
+          dateCell.style.backgroundColor = isToday ? '#f0f9ff' : '#fafafa';
+          dateCell.innerHTML = `
+              <div class="font-medium ${isToday ? 'text-blue-700 font-bold' : 'text-gray-400'}">${day}</div>
+              ${isToday ? '<div class="text-xs text-blue-700 mt-4">今天</div>' : '<div class="text-xs text-gray-300 mt-4">暂无记录</div>'}
+          `;
+      }
+      
+      calendarContainer.appendChild(dateCell);
+  }
+  
+  // 计算需要填充的月末空白数（修复计算逻辑）
+  const totalDaysInMonth = lastDay.getDate();
+  const totalCells = Math.ceil((firstDayOfWeek + totalDaysInMonth) / 7) * 7;
+  const emptyCellsNeeded = totalCells - (firstDayOfWeek + totalDaysInMonth);
+  
+  // 填充月末空白（下月的日期）- 统一样式
+  for (let i = 1; i <= emptyCellsNeeded; i++) {
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'h-20 bg-gray-50 rounded-lg text-gray-300 flex items-center justify-center border border-gray-100';
+      emptyCell.textContent = i;
+      calendarContainer.appendChild(emptyCell);
+  }
+}
         // 显示指定日期的记录 - 展示所有记录（修改：添加图片展示）
         function showDayRecords(dateStr) {
             const recordList = document.getElementById('record-list');
