@@ -261,6 +261,41 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-20px); }
         }
+
+/* 新增：弹窗通用样式 */
+.modal-enter {
+  animation: modal-fade-in 0.3s ease-in-out;
+}
+.modal-exit {
+  animation: modal-fade-out 0.3s ease-in-out;
+}
+@keyframes modal-fade-in {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes modal-fade-out {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
+}
+
+/* 新增：记账/总结弹窗样式补充 */
+#expense-modal .modal-content, #summary-modal .modal-content {
+  transform-origin: center;
+}
+#expense-amount:invalid {
+  border-color: #ef4444;
+}
+#summary-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+}
+#summary-content .total {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #3182CE; /* rainy-dark */
+  margin-bottom: 0.5rem;
+}
         
         /* 全局样式 */
         body {
@@ -342,6 +377,50 @@
     今天心情怎么样？✨
   </div>
 </div>
+
+<!-- 新增：记账弹窗 -->
+<div id="expense-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-gray-800">今日开支记账</h3>
+      <button id="close-expense-modal" class="text-gray-500 hover:text-gray-800">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">金额（¥）</label>
+        <input type="number" id="expense-amount" step="0.01" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rainy-dark" placeholder="输入金额，如 10.5">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+        <input type="text" id="expense-remark" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rainy-dark" placeholder="如 早餐/打车/购物">
+      </div>
+      <button id="save-expense" class="w-full bg-rainy-dark hover:bg-rainy-light text-white py-2 rounded-lg transition-colors">
+        保存记录
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增：当日开支总结弹窗 -->
+<div id="summary-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-gray-800" id="summary-title">今日开支总结</h3>
+      <button id="close-summary-modal" class="text-gray-500 hover:text-gray-800">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <div id="summary-content" class="mb-4 text-gray-700">
+      <!-- 总结内容会通过JS动态生成 -->
+    </div>
+    <button id="close-summary-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg transition-colors">
+      关闭
+    </button>
+  </div>
+</div>
+
 
     <!-- 导航栏 -->
     <nav class="bg-white/80 backdrop-blur-md shadow-md fixed top-0 left-0 right-0 z-50">
@@ -2043,6 +2122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 可选：随机切换气泡文案
     const bubbleTexts = [
+      "双击我即可记账哦！",
       "今天也要开心呀～",
       "选个天气记录心情吧✨",
       "我陪你一起记录～",
@@ -2051,6 +2131,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const randomText = bubbleTexts[Math.floor(Math.random() * bubbleTexts.length)];
     petBubble.textContent = randomText;
   });
+
+
 
   // 5. 可选：跟随情绪切换桌宠样式（关联情绪气象站核心逻辑）
   const emotionIcons = document.querySelectorAll('.emotion-icon');
@@ -2091,5 +2173,157 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBackground(currentEmotion);
         }
     </script>
+
+<!-- 原有脚本（如果有） -->
+
+<!-- 新增：记账功能核心JS -->
+<script>
+  // ========== 基础工具函数 ==========
+  // 获取今日日期（格式：YYYY-MM-DD）
+  function getTodayDate() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  // 从localStorage读取开支数据
+  function getExpenseData() {
+    const data = localStorage.getItem('expenseRecords');
+    return data ? JSON.parse(data) : {};
+  }
+
+  // 保存开支数据到localStorage
+  function saveExpenseData(data) {
+    localStorage.setItem('expenseRecords', JSON.stringify(data));
+  }
+
+  // ========== 记账弹窗逻辑 ==========
+  const petContainer = document.getElementById('pet-container');
+  const expenseModal = document.getElementById('expense-modal');
+  const closeExpenseModal = document.getElementById('close-expense-modal');
+  const saveExpenseBtn = document.getElementById('save-expense');
+  const expenseAmount = document.getElementById('expense-amount');
+  const expenseRemark = document.getElementById('expense-remark');
+
+  // 双击桌宠打开记账弹窗
+  petContainer.addEventListener('dblclick', () => {
+    expenseModal.classList.remove('hidden');
+    expenseModal.querySelector('div').classList.add('modal-enter');
+    expenseAmount.focus();
+    // 清空上次输入
+    expenseAmount.value = '';
+    expenseRemark.value = '';
+  });
+
+  // 关闭记账弹窗
+  closeExpenseModal.addEventListener('click', () => {
+    expenseModal.querySelector('div').classList.add('modal-exit');
+    setTimeout(() => {
+      expenseModal.classList.add('hidden');
+      expenseModal.querySelector('div').classList.remove('modal-exit');
+    }, 300);
+  });
+
+  // 保存记账记录
+  saveExpenseBtn.addEventListener('click', () => {
+    const amount = parseFloat(expenseAmount.value);
+    const remark = expenseRemark.value.trim() || '无备注';
+    
+    // 校验金额
+    if (isNaN(amount) || amount <= 0) {
+      alert('请输入有效的金额（大于0的数字）');
+      expenseAmount.focus();
+      return;
+    }
+
+    // 获取今日日期和现有数据
+    const today = getTodayDate();
+    const expenseData = getExpenseData();
+    
+    // 初始化今日数据
+    if (!expenseData[today]) {
+      expenseData[today] = [];
+    }
+
+    // 添加新记录
+    expenseData[today].push({
+      id: Date.now(), // 唯一ID
+      amount: amount.toFixed(2),
+      remark: remark,
+      time: new Date().toTimeString().split(' ')[0].slice(0, 8) // 时分秒
+    });
+
+    // 保存数据
+    saveExpenseData(expenseData);
+    
+    // 关闭记账弹窗并打开总结弹窗
+    closeExpenseModal.click();
+    showTodaySummary();
+  });
+
+  // ========== 当日总结弹窗逻辑 ==========
+  const summaryModal = document.getElementById('summary-modal');
+  const closeSummaryModal = document.getElementById('close-summary-modal');
+  const closeSummaryBtn = document.getElementById('close-summary-btn');
+  const summaryTitle = document.getElementById('summary-title');
+  const summaryContent = document.getElementById('summary-content');
+
+  // 显示当日开支总结
+  function showTodaySummary() {
+    const today = getTodayDate();
+    const expenseData = getExpenseData();
+    const todayExpenses = expenseData[today] || [];
+    
+    // 更新标题
+    summaryTitle.textContent = `${today} 开支总结`;
+    
+    // 生成总结内容
+    if (todayExpenses.length === 0) {
+      summaryContent.innerHTML = '<p class="text-center">今日暂无开支记录 ✨</p>';
+    } else {
+      // 计算总金额
+      const total = todayExpenses.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+      // 生成明细列表
+      let detailHtml = `<p class="total">今日总开支：¥${total.toFixed(2)}</p>`;
+      detailHtml += '<ul>';
+      todayExpenses.forEach((item, index) => {
+        detailHtml += `<li>${item.time} - ${item.remark}：¥${item.amount}</li>`;
+      });
+      detailHtml += '</ul>';
+      summaryContent.innerHTML = detailHtml;
+    }
+
+    // 显示总结弹窗
+    summaryModal.classList.remove('hidden');
+    summaryModal.querySelector('div').classList.add('modal-enter');
+  }
+
+  // 关闭总结弹窗
+  function closeSummaryModalFunc() {
+    summaryModal.querySelector('div').classList.add('modal-exit');
+    setTimeout(() => {
+      summaryModal.classList.add('hidden');
+      summaryModal.querySelector('div').classList.remove('modal-exit');
+    }, 300);
+  }
+
+  closeSummaryModal.addEventListener('click', closeSummaryModalFunc);
+  closeSummaryBtn.addEventListener('click', closeSummaryModalFunc);
+
+  // ========== 历史记录页面关联（可选：如果需要在历史记录页查看） ==========
+  // 给导航栏的“历史记录”按钮绑定事件
+  const navHistory = document.getElementById('nav-history');
+  navHistory.addEventListener('click', () => {
+    // 可自定义：切换到历史记录页并显示所有日期的开支
+    showTodaySummary(); // 先默认显示今日总结，可扩展为多日期选择
+  });
+
+  // ========== 点击弹窗外部关闭（可选优化） ==========
+  expenseModal.addEventListener('click', (e) => {
+    if (e.target === expenseModal) closeExpenseModal.click();
+  });
+  summaryModal.addEventListener('click', (e) => {
+    if (e.target === summaryModal) closeSummaryModalFunc();
+  });
+</script>
+
 </body>
 </html>
